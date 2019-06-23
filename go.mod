@@ -1,4 +1,4 @@
-module tmuxer
+module tmux-compose
 
 go 1.12
 
