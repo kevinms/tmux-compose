@@ -1,0 +1,14 @@
+name: test
+dir: ~/dev/tmuxer
+windows:
+  - name: fred
+    layout: main-vertical
+    focus: true
+    panes:
+      - vim
+      - echo hi
+      - 
+  - name: fred
+    panes:
+      - vim
+      - echo hi
