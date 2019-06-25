@@ -1,0 +1,42 @@
+name: test
+dir: ~/dev
+pre_cmd: rm tmux-compose/*.lock || true
+post_cmd: rm tmux-compose/*.lock || true
+windows:
+  - name: code
+    layout: main-vertical
+    focus: true
+    panes:
+      - cmd: vim
+      - 
+  - name: databases
+    panes:
+      - cmd: cd tmux-compose && sleep 3 && touch database.lock
+        readycheck:
+          test: test -f database.lock
+          interval: 3s
+          retries: 3
+
+  - panes:
+      - cmd: cd tmux-compose && sleep 3 && touch test.lock
+        name: test1
+        depends_on: ["databases"]
+        readycheck:
+          test: test -f test.lock
+          interval: 3s
+          retries: 3
+
+  - name: test2
+    panes:
+      - cmd: cd tmux-compose && ls database.lock && echo done
+        depends_on: ["databases"]
+
+  - name: test3
+    panes:
+      - cmd: cd tmux-compose && ls test.lock && echo done
+        depends_on: ["test1"]
+
+  - name: test4
+    panes:
+      - cmd: cd tmux-compose && ls test.lock && echo done
+        depends_on: ["test1"]
