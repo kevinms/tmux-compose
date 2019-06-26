@@ -5,6 +5,14 @@ This project is like a mash-up of docker-compose and teamocil/tmuxinator for tmu
 
 You create YAML config files that detail what windows and panes should be created and any commands that should be run in them. Then, you can setup dependencies between panes and windows to orchestrate the order in which the commands are run.
 
+- [Example Usage](#exampleyml)
+- [Installation](#installation)
+  - [Build from source](#build-from-source)
+- [Project Options](#project)
+- [Windows Options](#windows)
+- [Panes Options](#panes)
+
+
 ### example.yml
 ```yaml
 name: example
@@ -38,7 +46,7 @@ tmux-compose -f example.yml down
 
 ### Installation
 
-tmux-compose was built with Go.
+tmux-compose was built with Go. If you already have Go setup, you can just:
 
 ```bash
 go get github.com/kevinms/tmux-compose.git
