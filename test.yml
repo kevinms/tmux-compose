@@ -1,7 +1,7 @@
 name: test
 dir: ~/dev
-pre_cmd: rm tmux-compose/*.lock || true
-post_cmd: rm tmux-compose/*.lock || true
+up_pre_cmd: rm tmux-compose/*.lock || true
+down_post_cmd: rm tmux-compose/*.lock || true
 windows:
   - name: code
     layout: main-vertical

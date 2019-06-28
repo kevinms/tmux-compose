@@ -67,8 +67,10 @@ Example showing all options for the root node of the config file
 ```yaml
 name: example
 dir: /path/to/project
-pre_cmd: touch example.tmp
-post_cmd: rm example.tmp
+up_pre_cmd: (date; echo start) > run.log
+up_post_cmd: (date; echo done) >> run.log
+down_pre_cmd: touch example.tmp
+down_post_cmd: rm example.tmp
 windows:
   - name: code
     panes:

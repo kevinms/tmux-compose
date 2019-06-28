@@ -29,11 +29,13 @@ type Window struct {
 }
 
 type Project struct {
-	Name    string
-	Dir     string
-	PreCmd  string `yaml:"pre_cmd"`
-	PostCmd string `yaml:"post_cmd"`
-	Windows []*Window
+	Name        string
+	Dir         string
+	UpPreCmd    string `yaml:"up_pre_cmd"`
+	UpPostCmd   string `yaml:"up_post_cmd"`
+	DownPreCmd  string `yaml:"down_pre_cmd"`
+	DownPostCmd string `yaml:"down_post_cmd"`
+	Windows     []*Window
 }
 
 func run(format string, args ...interface{}) error {
@@ -181,8 +183,8 @@ func shellInDir(dir, cmd string) {
 }
 
 func up(session string, project *Project) {
-	if project.PreCmd != "" {
-		shellInDir(project.Dir, project.PreCmd)
+	if project.UpPreCmd != "" {
+		shellInDir(project.Dir, project.UpPreCmd)
 	}
 
 	// Spawn all the windows/panes
@@ -209,6 +211,17 @@ func up(session string, project *Project) {
 		SelectLayout(target, w.Layout)
 	}
 
+	// Set which window has focus
+	for wi, w := range project.Windows {
+		if w == nil {
+			continue
+		}
+		if w.Focus {
+			target := fmt.Sprintf("%s:%d", session, wi)
+			SelectWindow(target)
+		}
+	}
+
 	// Run the commands concurrently
 	for _, w := range project.Windows {
 		if w == nil {
@@ -224,24 +237,21 @@ func up(session string, project *Project) {
 	}
 	runAll()
 
-	// Set which window has focus
-	for wi, w := range project.Windows {
-		if w == nil {
-			continue
-		}
-		if w.Focus {
-			target := fmt.Sprintf("%s:%d", session, wi)
-			SelectWindow(target)
-		}
-	}
-
-	if project.PostCmd != "" {
-		shellInDir(project.Dir, project.PostCmd)
+	if project.UpPostCmd != "" {
+		shellInDir(project.Dir, project.UpPostCmd)
 	}
 }
 
 func down(session string, project *Project) {
+	if project.DownPreCmd != "" {
+		shellInDir(project.Dir, project.DownPreCmd)
+	}
+
 	KillSession(session)
+
+	if project.DownPostCmd != "" {
+		shellInDir(project.Dir, project.DownPostCmd)
+	}
 }
 
 func main() {
