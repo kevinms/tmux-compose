@@ -13,11 +13,12 @@ import (
 )
 
 type Pane struct {
-	Object `yaml:",inline"`
-	Dir    string
-	Focus  bool
-	Cmd    string
-	target string
+	Object  `yaml:",inline"`
+	Dir     string
+	Focus   bool
+	Cmd     string
+	KillCmd string `yaml:"kill_cmd"`
+	target  string
 }
 
 type Window struct {
@@ -37,6 +38,8 @@ type Project struct {
 	DownPostCmd string `yaml:"down_post_cmd"`
 	Windows     []*Window
 }
+
+var gRestart bool
 
 func run(format string, args ...interface{}) error {
 	cmdStr := fmt.Sprintf(format, args...)
@@ -132,6 +135,9 @@ func (project *Project) getDir(w *Window, paneIndex int) string {
 }
 
 func (p *Pane) Run() {
+	if gRestart && p.KillCmd == "" {
+		return
+	}
 	SendLine(p.target, p.Cmd)
 }
 
@@ -254,6 +260,44 @@ func down(session string, project *Project) {
 	}
 }
 
+func restart(session string, project *Project) {
+	// Run the commands concurrently
+	for wi, w := range project.Windows {
+		if w == nil {
+			continue
+		}
+		for pi, p := range w.Panes {
+			if p == nil {
+				continue
+			}
+			p.target = fmt.Sprintf("%s:%d.%d", session, wi, pi)
+
+			if p.KillCmd != "" {
+				SendLine(p.target, p.KillCmd)
+			}
+		}
+	}
+
+	// Used in each Panel's Run() method to know if we are performing a restart.
+	// Only commands with a KillCmd will be restarted.
+	gRestart = true
+
+	// Run the commands concurrently
+	for _, w := range project.Windows {
+		if w == nil {
+			continue
+		}
+		addRunner(w)
+		for _, p := range w.Panes {
+			if p == nil {
+				continue
+			}
+			addRunner(p)
+		}
+	}
+	runAll()
+}
+
 func main() {
 	var overrideName string
 	var composeFile string
@@ -286,5 +330,7 @@ func main() {
 		up(session, &project)
 	case "down":
 		down(session, &project)
+	case "restart":
+		restart(session, &project)
 	}
 }

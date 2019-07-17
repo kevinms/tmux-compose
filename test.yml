@@ -7,11 +7,12 @@ windows:
     layout: main-vertical
     focus: true
     panes:
-      - cmd: vim
+      - cmd: top
+        kill_cmd: C-c
       - 
   - name: databases
     panes:
-      - cmd: cd tmux-compose && sleep 3 && touch database.lock
+      - cmd: cd tmux-compose; sleep 3 && touch database.lock
         readycheck:
           test: test -f database.lock
           interval: 3s
