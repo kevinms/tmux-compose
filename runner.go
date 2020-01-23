@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-// A window is ready when all it's children are ready.
+// A Session is ready when all it's windows are ready.
+// A window is ready when all it's panes are ready.
 // A pane is ready when the readycheck is successful.
 // A pane without a readycheck is always ready.
 

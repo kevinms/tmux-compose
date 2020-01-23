@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -29,21 +30,28 @@ type Window struct {
 	Panes  []*Pane
 }
 
+type Session struct {
+	Object  `yaml:",inline"`
+	Dir     string
+	Windows []*Window
+	started bool
+}
+
 type Project struct {
-	Name        string
 	Dir         string
 	UpPreCmd    string `yaml:"up_pre_cmd"`
 	UpPostCmd   string `yaml:"up_post_cmd"`
 	DownPreCmd  string `yaml:"down_pre_cmd"`
 	DownPostCmd string `yaml:"down_post_cmd"`
-	Windows     []*Window
+	Sessions    []*Session
 }
 
+var gShellArgs []string
 var gRestart bool
 
 func run(format string, args ...interface{}) error {
 	cmdStr := fmt.Sprintf(format, args...)
-	cmd := exec.Command("/bin/sh", "-c", cmdStr)
+	cmd := exec.Command(gShellArgs[0], append(gShellArgs[1:], cmdStr)...)
 
 	fmt.Println(cmdStr)
 	_, err := cmd.CombinedOutput()
@@ -61,14 +69,16 @@ func shell(format string, args ...interface{}) {
 	}
 }
 
-var sessionStarted bool
+func shellInDir(dir, cmd string) {
+	shell("cd %s;%s", coalesce(dir, "."), cmd)
+}
 
-func NewWindow(session, dir string) {
-	if sessionStarted {
-		shell("tmux new-window -d -t %s -c %s", session, dir)
+func NewWindow(session *Session, dir string) {
+	if session.started {
+		shell("tmux new-window -d -t %s -c %s", session.Name, dir)
 	} else {
-		shell("tmux new-session -d -s %s -c %s", session, dir)
-		sessionStarted = true
+		shell("tmux new-session -d -s %s -c %s", session.Name, dir)
+		session.started = true
 	}
 }
 
@@ -105,7 +115,7 @@ func SendLine(target, text string) {
 }
 
 func KillSession(session string) {
-	shell("tmux kill-session -t %s", session)
+	run("tmux kill-session -t %s", session)
 }
 
 func SetEnvironment(session, key, value string) {
@@ -121,17 +131,17 @@ func coalesce(args ...string) string {
 	return ""
 }
 
-func (project *Project) getDir(w *Window, paneIndex int) string {
+func (project *Project) getDir(s *Session, w *Window, paneIndex int) string {
 	if paneIndex > len(w.Panes) {
 		log.Fatal("Pane index out of bounds?!")
 	}
 
 	if paneIndex == 0 && len(w.Panes) == 0 {
 		// The window has no explicit panes
-		return coalesce(w.Dir, project.Dir, ".")
+		return coalesce(w.Dir, s.Dir, project.Dir, ".")
 	}
 
-	return coalesce(w.Panes[paneIndex].Dir, w.Dir, project.Dir, ".")
+	return coalesce(w.Panes[paneIndex].Dir, w.Dir, s.Dir, project.Dir, ".")
 }
 
 func (p *Pane) Run() {
@@ -144,6 +154,9 @@ func (p *Pane) Run() {
 func (w *Window) Run() {
 }
 
+func (s *Session) Run() {
+}
+
 func (w *Window) DoReadyCheck() {
 	for {
 		ready := true
@@ -153,6 +166,27 @@ func (w *Window) DoReadyCheck() {
 				continue
 			}
 			if !p.IsReady() {
+				ready = false
+				time.Sleep(100 * time.Millisecond)
+				break
+			}
+		}
+
+		if ready {
+			return
+		}
+	}
+}
+
+func (s *Session) DoReadyCheck() {
+	for {
+		ready := true
+
+		for _, w := range s.Windows {
+			if w == nil {
+				continue
+			}
+			if !w.IsReady() {
 				ready = false
 				time.Sleep(100 * time.Millisecond)
 				break
@@ -184,61 +218,67 @@ func (p *Pane) DoReadyCheck() {
 	}
 }
 
-func shellInDir(dir, cmd string) {
-	shell("cd %s;%s", coalesce(dir, "."), cmd)
-}
-
-func up(session string, project *Project) {
+func (project *Project) up() {
 	if project.UpPreCmd != "" {
 		shellInDir(project.Dir, project.UpPreCmd)
 	}
 
-	// Spawn all the windows/panes
-	for wi, w := range project.Windows {
-		if w == nil {
-			continue
-		}
-		target := fmt.Sprintf("%s:%d", session, wi)
-		dir := project.getDir(w, 0)
-
-		NewWindow(session, dir)
-
-		for pi, p := range w.Panes {
-			if p == nil {
+	// Spawn all the sessions/windows/panes
+	for _, s := range project.Sessions {
+		for wi, w := range s.Windows {
+			if w == nil {
 				continue
 			}
-			p.target = fmt.Sprintf("%s:%d.%d", session, wi, pi)
-			dir := project.getDir(w, pi)
-			if pi > 0 {
-				NewPane(target, dir)
-			}
-		}
+			target := fmt.Sprintf("%s:%d", s.Name, wi)
+			dir := project.getDir(s, w, 0)
 
-		SelectLayout(target, w.Layout)
+			NewWindow(s, dir)
+
+			for pi, p := range w.Panes {
+				if p == nil {
+					continue
+				}
+				p.target = fmt.Sprintf("%s:%d.%d", s.Name, wi, pi)
+				dir := project.getDir(s, w, pi)
+				if pi > 0 {
+					NewPane(target, dir)
+				}
+			}
+
+			SelectLayout(target, w.Layout)
+		}
 	}
 
 	// Set which window has focus
-	for wi, w := range project.Windows {
-		if w == nil {
-			continue
-		}
-		if w.Focus {
-			target := fmt.Sprintf("%s:%d", session, wi)
-			SelectWindow(target)
+	for _, s := range project.Sessions {
+		for wi, w := range s.Windows {
+			if w == nil {
+				continue
+			}
+			if w.Focus {
+				target := fmt.Sprintf("%s:%d", s.Name, wi)
+				SelectWindow(target)
+			}
 		}
 	}
 
 	// Run the commands concurrently
-	for _, w := range project.Windows {
-		if w == nil {
+	for _, s := range project.Sessions {
+		if s == nil {
 			continue
 		}
-		addRunner(w)
-		for _, p := range w.Panes {
-			if p == nil {
+		addRunner(s)
+		for _, w := range s.Windows {
+			if w == nil {
 				continue
 			}
-			addRunner(p)
+			addRunner(w)
+			for _, p := range w.Panes {
+				if p == nil {
+					continue
+				}
+				addRunner(p)
+			}
 		}
 	}
 	runAll()
@@ -248,32 +288,36 @@ func up(session string, project *Project) {
 	}
 }
 
-func down(session string, project *Project) {
+func (project *Project) down() {
 	if project.DownPreCmd != "" {
 		shellInDir(project.Dir, project.DownPreCmd)
 	}
 
-	KillSession(session)
+	for _, s := range project.Sessions {
+		KillSession(s.Name)
+	}
 
 	if project.DownPostCmd != "" {
 		shellInDir(project.Dir, project.DownPostCmd)
 	}
 }
 
-func restart(session string, project *Project) {
+func (project *Project) restart() {
 	// Run the commands concurrently
-	for wi, w := range project.Windows {
-		if w == nil {
-			continue
-		}
-		for pi, p := range w.Panes {
-			if p == nil {
+	for _, s := range project.Sessions {
+		for wi, w := range s.Windows {
+			if w == nil {
 				continue
 			}
-			p.target = fmt.Sprintf("%s:%d.%d", session, wi, pi)
+			for pi, p := range w.Panes {
+				if p == nil {
+					continue
+				}
+				p.target = fmt.Sprintf("%s:%d.%d", s.Name, wi, pi)
 
-			if p.KillCmd != "" {
-				SendLine(p.target, p.KillCmd)
+				if p.KillCmd != "" {
+					SendLine(p.target, p.KillCmd)
+				}
 			}
 		}
 	}
@@ -283,27 +327,46 @@ func restart(session string, project *Project) {
 	gRestart = true
 
 	// Run the commands concurrently
-	for _, w := range project.Windows {
-		if w == nil {
+	for _, s := range project.Sessions {
+		if s == nil {
 			continue
 		}
-		addRunner(w)
-		for _, p := range w.Panes {
-			if p == nil {
+		addRunner(s)
+		for _, w := range s.Windows {
+			if w == nil {
 				continue
 			}
-			addRunner(p)
+			addRunner(w)
+			for _, p := range w.Panes {
+				if p == nil {
+					continue
+				}
+				addRunner(p)
+			}
 		}
 	}
 	runAll()
 }
 
+func getDefaultShell() string {
+	sh := os.Getenv("SHELL")
+
+	if sh == "" {
+		return "/bin/sh -c"
+	}
+
+	return sh + " -c"
+}
+
 func main() {
-	var overrideName string
 	var composeFile string
-	flag.StringVar(&overrideName, "s", "", "Override the config files session name.")
+	var shellArgs string
 	flag.StringVar(&composeFile, "f", "tmux-compose.yml", "Specify an alternate compose file")
+	flag.StringVar(&shellArgs, "shell", getDefaultShell(), "Specify an alternate shell path")
 	flag.Parse()
+
+	fmt.Printf("Using shell args: %s\n", shellArgs)
+	gShellArgs = strings.Split(shellArgs, " ")
 
 	if flag.Arg(0) == "" {
 		fmt.Println("Usage: ", os.Args[0], "[OPTIONS] <up> | <down>")
@@ -322,15 +385,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	session := coalesce(overrideName, project.Name, "new")
 	action := flag.Arg(0)
 
 	switch action {
 	case "up":
-		up(session, &project)
+		project.up()
 	case "down":
-		down(session, &project)
+		project.down()
 	case "restart":
-		restart(session, &project)
+		project.restart()
 	}
 }

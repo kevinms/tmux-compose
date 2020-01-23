@@ -15,23 +15,24 @@ You create YAML config files that detail what windows and panes should be create
 
 ### example.yml
 ```yaml
-name: example
 dir: ~/project
-windows:
+sessions:
+  - name: example
+    windows:
 
-  # Start a database
-  - name: database
-    panes:
-      - cmd: service postgresql start
-        readycheck:
-          test: pg_isready -h localhost -p 5432 -U postgres
-          interval: 3s
-          retries: 3
+      # Start a database
+      - name: database
+        panes:
+          - cmd: service postgresql start
+            readycheck:
+              test: pg_isready -h localhost -p 5432 -U postgres
+              interval: 3s
+              retries: 3
 
-  # Run a program that must start after the database is ready
-  - panes:
-      - cmd: ./myprogram
-        depends_on: ["database"]
+      # Run a program that must start after the database is ready
+      - panes:
+          - cmd: ./myprogram
+            depends_on: ["database"]
 ```
 
 Bring up a tmux session:
@@ -46,7 +47,7 @@ tmux-compose -f example.yml down
 
 ### Installation
 
-tmux-compose was built with Go. If you already have Go setup, you can just:
+tmux-compose was built with Go. If you already have Go setup, you `go get` the utility:
 
 ```bash
 go get github.com/kevinms/tmux-compose.git
@@ -60,55 +61,77 @@ cd tmux-compose
 go install
 ```
 
-Go code can easily compile for other OSes, but I have only tested running it in Linux.
+Go code can easily compile for other OSes, but this has only been tested on Linux.
 
 ### Project
 Example showing all options for the root node of the config file
 ```yaml
-name: example
 dir: /path/to/project
 up_pre_cmd: (date; echo start) > run.log
 up_post_cmd: (date; echo done) >> run.log
 down_pre_cmd: touch example.tmp
 down_post_cmd: rm example.tmp
-windows:
-  - name: code
-    panes:
-    - cmd: vim
-  - panes:
-    - cmd: top
+sessions:
+  - name: example
+    windows:
+      - name: code
+        panes:
+        - cmd: vim
+      - panes:
+        - cmd: top
+```
+
+### Sessions
+Example showing all options being used for a window:
+```yaml
+sessions:
+  - name: example
+    dir: ~/project
+    readycheck:
+      test: ping -c1 domain.net
+      interval: 3s
+      retries: 10
+    depends_on: ["thing1", "thing2"]
+    windows:
+      - name: code
+        panes:
+        - cmd: vim
+      - panes:
+        - cmd: top
 ```
 
 ### Windows
 Example showing all options being used for a window:
 ```yaml
-name: example
-windows:
-  - name: My Window
-    dir: ~/project
-    focus: true
-    layout: main-vertical
-    depends_on: ["thing1", "thing2"]
-    panes:
-      - cmd: vim
-      - cmd: sleep 5
+sessions:
+  - name: example
+    windows:
+      - name: My Window
+        dir: ~/project
+        focus: true
+        layout: main-vertical
+        depends_on: ["thing1", "thing2"]
+        panes:
+          - cmd: vim
+          - cmd: sleep 5
 ```
 
 ### Panes
 Example showing all options being used for a pane:
 ```yaml
-name: example
-windows:
-  - panes:
-    - name: My Pane
-      dir: ~/project
-      cmd: python -m SimpleHTTPServer 8000
-      focus: true
-      readycheck:
-        test: ping -c1 domain.net
-        interval: 3s
-        retries: 10
-      depends_on: ["thing1", "thing2"]
+sessions:
+  - name: example
+    windows:
+      - panes:
+        - name: My Pane
+          dir: ~/project
+          cmd: python -m SimpleHTTPServer 8000
+          focus: true
+          readycheck:
+            test: ping -c1 domain.net
+            interval: 3s
+            retries: 10
+          depends_on: ["thing1", "thing2"]
 ```
 
 #### Directly Inspired By:
