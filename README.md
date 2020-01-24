@@ -13,7 +13,7 @@ You create YAML config files that detail what windows and panes should be create
 - [Panes Options](#panes)
 
 
-### example.yml
+## example.yml
 ```yaml
 dir: ~/project
 sessions:
@@ -45,15 +45,19 @@ Teardown a tmux session:
 tmux-compose -f example.yml down
 ```
 
-### Installation
+## Installation
 
+##### Prebuilt binaries for stable releases
+Prebuilt binaries for multiple platforms can be downloaded from the [releases page](https://github.com/kevinms/tmux-compose/releases).
+
+##### Automated build from source
 tmux-compose was built with Go. If you already have Go setup, you `go get` the utility:
 
 ```bash
 go get github.com/kevinms/tmux-compose.git
 ```
 
-#### Build from source
+##### Manually build from source
 
 ```bash
 git clone https://github.com/kevinms/tmux-compose.git
@@ -63,7 +67,7 @@ go install
 
 Go code can easily compile for other OSes, but this has only been tested on Linux.
 
-### Project
+## Project
 Example showing all options for the root node of the config file
 ```yaml
 dir: /path/to/project
@@ -81,7 +85,7 @@ sessions:
         - cmd: top
 ```
 
-### Sessions
+## Sessions
 Example showing all options being used for a window:
 ```yaml
 sessions:
@@ -100,7 +104,7 @@ sessions:
         - cmd: top
 ```
 
-### Windows
+## Windows
 Example showing all options being used for a window:
 ```yaml
 sessions:
@@ -116,7 +120,7 @@ sessions:
           - cmd: sleep 5
 ```
 
-### Panes
+## Panes
 Example showing all options being used for a pane:
 ```yaml
 sessions:
@@ -134,7 +138,7 @@ sessions:
           depends_on: ["thing1", "thing2"]
 ```
 
-#### Directly Inspired By:
+## Directly Inspired By:
 
 * docker-compose
 * teamocil
