@@ -54,7 +54,7 @@ Prebuilt binaries for multiple platforms can be downloaded from the [releases pa
 tmux-compose was built with Go. If you already have Go setup, you `go get` the utility:
 
 ```bash
-go get github.com/kevinms/tmux-compose.git
+go get github.com/kevinms/tmux-compose
 ```
 
 ##### Manually build from source
