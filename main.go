@@ -74,16 +74,20 @@ func shellInDir(dir, cmd string) {
 }
 
 func NewWindow(session *Session, window *Window, dir string) {
+	var namedWindow string
+	if(len(window.Name) > 0) {
+		namedWindow = fmt.Sprintf(`-n "%s"`, window.Name)
+	}
 	if session.started {
-		shell("tmux new-window -d -t %s -n %s -c %s", session.Name, window.Name, dir)
+		shell("tmux new-window -d -t %s %s -c %s", session.Name, namedWindow, dir)
 	} else {
-		shell("tmux new-session -d -s %s -n %s -c %s", session.Name, window.Name, dir)
+		shell("tmux new-session -d -s %s %s -c %s", session.Name, namedWindow, dir)
 		session.started = true
 	}
 }
 
-func NewPane(target, pane *Pane, dir string) {
-	shell("tmux split-window -t %s -n %s -c %s", target, pane.Name, dir)
+func NewPane(target, dir string) {
+	shell("tmux split-window -t %s -c %s", target, dir)
 }
 
 func SelectWindow(target string) {
@@ -241,7 +245,7 @@ func (project *Project) up() {
 				p.target = fmt.Sprintf("%s:%d.%d", s.Name, wi, pi)
 				dir := project.getDir(s, w, pi)
 				if pi > 0 {
-					NewPane(target, p, dir)
+					NewPane(target, dir)
 				}
 			}
 
