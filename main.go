@@ -73,11 +73,15 @@ func shellInDir(dir, cmd string) {
 	shell("cd %s;%s", coalesce(dir, "."), cmd)
 }
 
-func NewWindow(session *Session, dir string) {
+func NewWindow(session *Session, window *Window, dir string) {
+	var namedWindow string
+	if(len(window.Name) > 0) {
+		namedWindow = fmt.Sprintf(`-n "%s"`, window.Name)
+	}
 	if session.started {
-		shell("tmux new-window -d -t %s -c %s", session.Name, dir)
+		shell("tmux new-window -d -t %s %s -c %s", session.Name, namedWindow, dir)
 	} else {
-		shell("tmux new-session -d -s %s -c %s", session.Name, dir)
+		shell("tmux new-session -d -s %s %s -c %s", session.Name, namedWindow, dir)
 		session.started = true
 	}
 }
@@ -232,7 +236,7 @@ func (project *Project) up() {
 			target := fmt.Sprintf("%s:%d", s.Name, wi)
 			dir := project.getDir(s, w, 0)
 
-			NewWindow(s, dir)
+			NewWindow(s, w, dir)
 
 			for pi, p := range w.Panes {
 				if p == nil {
